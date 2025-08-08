@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Visualização do Motorista</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f7fc;
+      color: #333;
+    }
+    h2 {
+      text-align: center;
+      font-size: 28px;
+      margin: 20px 0;
+      color: #4CAF50;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .filters select, .filters button {
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      min-width: 200px;
+    }
+    .filters button {
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    .filters button:hover {
+      background-color: #45a049;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    th, td {
+      padding: 10px 15px;
+      text-align: left;
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    @media (max-width: 768px) {
+      .filters {
+        flex-direction: column;
+        align-items: center;
+      }
+      .filters select, .filters button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>Relatório Diário - Motorista</h2>
+  <div class="container">
+    <div class="filters">
+      <select id="hour-filter">
+        <option value="">Selecione um horário</option>
+      </select>
+      <button onclick="applyFilters()">Filtrar</button>
+      <button onclick="clearFilters()">Limpar</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Solicitante</th>
+          <th>Ponto Desejado</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const SHEET_ID = "1y41lFvyVIbjtiAIA8OT0cXRSfS1WRCEZq3yjUWDOEHo";
+    const API_KEY = "AIzaSyDUSAoIjOt1J5aTB7E713inGNfrEQTLUXk";
+    const RANGE = "A:E";
+
+    const URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+    let allData = [], filteredData = [];
+
+    function getToday() {
+      const now = new Date();
+      return now.toLocaleDateString('pt-BR'); // "dd/mm/yyyy"
+    }
+
+    async function fetchData() {
+      try {
+        const res = await fetch(URL);
+        const json = await res.json();
+        if (json?.values?.length > 1) {
+          const today = getToday();
+          allData = json.values.slice(1).filter(row => {
+            const data = row[0]?.split(" ")[0];
+            return data === today;
+          });
+          filteredData = allData;
+          displayData(allData);
+          populateHourFilter(allData);
+        }
+      } catch (e) {
+        alert("Erro ao carregar os dados.");
+        console.error(e);
+      }
+    }
+
+    function displayData(data) {
+      const tbody = document.getElementById("table-body");
+      tbody.innerHTML = "";
+      data.forEach(row => {
+        const hora = row[0]?.split(" ")[1] || "";
+        const solicitante = row[1] || "";
+        const ponto = row[2] || "";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${hora}</td>
+          <td>${solicitante}</td>
+          <td>${ponto}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function populateHourFilter(data) {
+      const select = document.getElementById("hour-filter");
+      select.innerHTML = '<option value="">Selecione um horário</option>';
+      [...new Set(data.map(row => row[3]).filter(Boolean))].forEach(hour => {
+        const opt = document.createElement("option");
+        opt.value = hour;
+        opt.textContent = hour;
+        select.appendChild(opt);
+      });
+    }
+
+    function applyFilters() {
+      const hour = document.getElementById("hour-filter").value;
+      if (hour) {
+        const filtered = allData.filter(row => row[3] === hour);
+        displayData(filtered);
+      } else {
+        displayData(allData);
+      }
+    }
+
+    function clearFilters() {
+      document.getElementById("hour-filter").value = "";
+      displayData(allData);
+    }
+
+    fetchData();
+    setInterval(fetchData, 20000);
+  </script>
+</body>
+</html>
