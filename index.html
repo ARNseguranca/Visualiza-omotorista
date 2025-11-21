@@ -1,320 +1,1370 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Visualização do Motorista</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
-  <style>
-    body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background-color: #f4f7fc; color: #333; }
-    h2 { text-align: center; font-size: 28px; margin: 20px 0; color: #4CAF50; }
-    .container { max-width: 1200px; margin: auto; padding: 20px; }
-    .filters { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px; }
-    .filters select, .filters button { padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; min-width: 200px; }
-    .filters button { background-color: #4CAF50; color: #fff; border: none; cursor: pointer; }
-    .filters button:hover { background-color: #45a049; }
-    table { width: 100%; border-collapse: collapse; background-color: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-    th, td { padding: 10px 15px; text-align: left; border: 1px solid #ddd; cursor: default; }
-    th { background-color: #f4f4f4; }
-    #map { height: 500px; margin-top: 20px; border-radius: 10px; display: none; }
-    .sabado-alerta {
-  background-color: #fff3cd;
-  color: #856404;
-  font-weight: bold;
-  text-align: center;
-  padding: 15px;
-  margin: 0;
-  border-bottom: 2px solid #ffeeba;
-  font-size: 18px;
-}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#00D9FF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Navegação - Motorista</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedmarker.js">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --waze-blue: #00D9FF;
+            --waze-dark: #1a1a2e;
+            --waze-bg: #16213e;
+            --waze-card: #0f3460;
+            --waze-text: #ffffff;
+            --waze-muted: #94a3b8;
+            --waze-border: #2d3748;
+            --waze-success: #00ff88;
+            --waze-warning: #ffd60a;
+            --waze-danger: #ff006e;
+        }
 
-    /* Piscar estável (sem mover o ícone) */
-    @keyframes blinkGlow {
-      0%, 100% { filter: drop-shadow(0 0 0px #ff0) brightness(100%); }
-      50%      { filter: drop-shadow(0 0 16px #ff0) brightness(130%); }
-    }
-    .leaflet-marker-icon.blink-alert { animation: blinkGlow 1s ease-in-out infinite; z-index: 1000 !important; }
-    .leaflet-marker-icon.dimmed { opacity: 0.35; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    @media (max-width: 768px) {
-      .filters { flex-direction: column; align-items: center; }
-      .filters select, .filters button { width: 100%; }
-    }
-  </style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        #appContainer {
+            width: 100%;
+            max-width: 430px;
+            height: 932px;
+            max-height: 95vh;
+            background: var(--waze-bg);
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 30px 100px rgba(0,217,255,0.3), 0 0 0 10px #1a1a2e, 0 0 0 12px #000;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #appContainer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 130px;
+            height: 28px;
+            background: var(--waze-bg);
+            border-radius: 0 0 20px 20px;
+            z-index: 10000;
+        }
+
+        /* ===== HEADER ===== */
+        header {
+            background: linear-gradient(135deg, var(--waze-blue) 0%, #0099cc 100%);
+            padding: 50px 16px 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .driver-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        header p {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.9);
+            margin-top: 2px;
+        }
+
+        .btn-refresh {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-refresh:active {
+            transform: rotate(180deg) scale(0.9);
+        }
+
+        /* ===== ALERTA ===== */
+        .alert-saturday {
+            background: linear-gradient(135deg, var(--waze-warning) 0%, #f59e0b 100%);
+            color: #000;
+            padding: 12px 16px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .alert-saturday.show {
+            display: flex;
+        }
+
+        /* ===== FILTROS ===== */
+        .filters {
+            background: var(--waze-card);
+            padding: 16px;
+            border-bottom: 1px solid var(--waze-border);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .filter-select {
+            flex: 1;
+            padding: 12px 14px 12px 40px;
+            background: var(--waze-bg);
+            border: 2px solid var(--waze-border);
+            border-radius: 12px;
+            color: var(--waze-text);
+            font-size: 0.9rem;
+        }
+
+        .select-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        .select-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--waze-muted);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--waze-blue);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-filter {
+            flex: 1;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--waze-blue) 0%, #0099cc 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 12px rgba(0,217,255,0.4);
+        }
+
+        .btn-filter:active {
+            transform: scale(0.98);
+        }
+
+        .btn-clear {
+            background: var(--waze-bg);
+            border: 2px solid var(--waze-border);
+            color: var(--waze-muted);
+            box-shadow: none;
+        }
+
+        /* ===== CONTEÚDO ===== */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* ===== LISTA ===== */
+        .requests-list {
+            padding: 12px;
+        }
+
+        .request-card {
+            background: var(--waze-card);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 10px;
+            border: 1px solid var(--waze-border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .request-time {
+            width: 50px;
+            height: 50px;
+            background: var(--waze-blue);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .time-hour {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .time-min {
+            font-size: 0.7rem;
+            opacity: 0.8;
+        }
+
+        .request-info {
+            flex: 1;
+        }
+
+        .request-point {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--waze-text);
+            margin-bottom: 4px;
+        }
+
+        .request-person {
+            font-size: 0.85rem;
+            color: var(--waze-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .request-badge {
+            width: 32px;
+            height: 32px;
+            background: rgba(0,217,255,0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--waze-blue);
+        }
+
+        /* ===== MAPA 3D WAZE ===== */
+        .map-container {
+            position: relative;
+            height: 100%;
+            display: none;
+            background: #1a1a2e;
+        }
+
+        .map-container.active {
+            display: block;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+        }
+
+        /* Efeito 3D no mapa */
+        #map .leaflet-tile-pane {
+            transform: rotateX(15deg) scale(1.05);
+            transform-origin: center center;
+        }
+
+        /* ===== CONTROLES SUPERIORES WAZE ===== */
+        .waze-top-bar {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            z-index: 1000;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-waze-back {
+            width: 48px;
+            height: 48px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-waze-back:active {
+            transform: scale(0.9);
+        }
+
+        .btn-waze-back i {
+            color: var(--waze-blue);
+            font-size: 1.1rem;
+        }
+
+        .waze-eta-display {
+            flex: 1;
+            background: white;
+            border-radius: 50px;
+            padding: 10px 18px;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .eta-main {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .eta-value {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: var(--waze-blue);
+            letter-spacing: -1px;
+        }
+
+        .eta-label {
+            font-size: 0.75rem;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .eta-secondary {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .eta-distance {
+            font-size: 0.9rem;
+            color: #333;
+            font-weight: 700;
+        }
+
+        .eta-arrival {
+            font-size: 0.7rem;
+            color: #999;
+        }
+
+        .btn-waze-recenter {
+            width: 48px;
+            height: 48px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-waze-recenter:active {
+            transform: scale(0.9);
+        }
+
+        .btn-waze-recenter i {
+            color: var(--waze-blue);
+            font-size: 1.2rem;
+        }
+
+        /* ===== PAINEL NAVEGAÇÃO WAZE ===== */
+        .waze-nav-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 28px 28px 0 0;
+            z-index: 1000;
+            box-shadow: 0 -8px 40px rgba(0,0,0,0.4);
+        }
+
+        .nav-main-instruction {
+            padding: 24px 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .nav-turn-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--waze-blue) 0%, #0099cc 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2.2rem;
+            flex-shrink: 0;
+            box-shadow: 0 8px 20px rgba(0,217,255,0.3);
+        }
+
+        .nav-instruction-text {
+            flex: 1;
+        }
+
+        .nav-distance-next {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #000;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-action {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .nav-street-name {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .nav-stats-bar {
+            display: flex;
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .nav-stat-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .nav-stat-value {
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: var(--waze-blue);
+            margin-bottom: 4px;
+        }
+
+        .nav-stat-label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .waypoints-section {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 12px 20px 20px;
+        }
+
+        .waypoints-title {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .waypoint-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .waypoint-item:last-child {
+            border-bottom: none;
+        }
+
+        .waypoint-marker {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 900;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            background: var(--waze-blue);
+        }
+
+        .waypoint-marker.current {
+            background: var(--waze-warning);
+            animation: pulseWaypoint 1.5s infinite;
+        }
+
+        .waypoint-marker.completed {
+            background: var(--waze-success);
+        }
+
+        @keyframes pulseWaypoint {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,214,10,0.7); }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255,214,10,0); }
+        }
+
+        .waypoint-details {
+            flex: 1;
+        }
+
+        .waypoint-point-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 2px;
+        }
+
+        .waypoint-person-name {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .waypoint-status-badge {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .waypoint-status-badge.next {
+            background: rgba(255,214,10,0.2);
+            color: #8b6c00;
+        }
+
+        .waypoint-status-badge.done {
+            background: rgba(0,255,136,0.2);
+            color: #006b39;
+        }
+
+        .waypoint-status-badge.pending {
+            background: rgba(148,163,184,0.2);
+            color: #475569;
+        }
+
+        /* ===== ÍCONES ROTATIVOS ===== */
+        .rotating-bus {
+            transition: transform 0.3s ease-out;
+        }
+
+        /* ===== MARCADORES PULSANTES ===== */
+        .marker-pulse {
+            animation: markerPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes markerPulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 10px rgba(0,217,255,0.8));
+                transform: scale(1);
+            }
+            50% {
+                filter: drop-shadow(0 0 25px rgba(0,217,255,1));
+                transform: scale(1.1);
+            }
+        }
+
+        .marker-dimmed {
+            opacity: 0.35 !important;
+            filter: grayscale(80%);
+        }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: var(--waze-muted);
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            color: var(--waze-text);
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: var(--waze-muted);
+            font-size: 0.9rem;
+        }
+
+        /* ===== LOADING ===== */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0,217,255,0.2);
+            border-top-color: var(--waze-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: absolute;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%) translateY(150px);
+            background: white;
+            color: #000;
+            padding: 14px 24px;
+            border-radius: 50px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            font-size: 0.9rem;
+            font-weight: 700;
+            z-index: 6000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.5s;
+            max-width: 85%;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success { background: var(--waze-success); }
+        .toast.error { background: var(--waze-danger); color: white; }
+        .toast.info { background: var(--waze-blue); color: white; }
+
+        /* ===== LEAFLET CUSTOM ===== */
+        .leaflet-routing-container {
+            display: none !important;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(0,0,0,0.6) !important;
+            color: white !important;
+            font-size: 0.6rem !important;
+        }
+
+        /* ===== RESPONSIVO ===== */
+        @media (max-width: 450px) {
+            body {
+                padding: 0;
+            }
+            #appContainer {
+                max-width: 100%;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            #appContainer::before {
+                display: none;
+            }
+        }
+
+        .requests-list::-webkit-scrollbar,
+        .waypoints-section::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .requests-list::-webkit-scrollbar-track,
+        .waypoints-section::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .requests-list::-webkit-scrollbar-thumb,
+        .waypoints-section::-webkit-scrollbar-thumb {
+            background: var(--waze-blue);
+            border-radius: 2px;
+        }
+    </style>
 </head>
 <body>
-  <body>
-  <div class="sabado-alerta">
-    ⚠️ Aos <strong>sábados</strong>, os pontos <strong>13</strong> e <strong>24</strong> 
-    <u>são obrigatórios em todos os horários</u>.
-  </div>
-  <h2>Relatório Diário de Pontos Internos - Motorista</h2>
-  <div class="container">
-    <div class="filters">
-      <select id="hour-filter">
-        <option value="">Selecione um horário</option>
-      </select>
-      <button onclick="applyFilters()">Filtrar</button>
-      <button onclick="clearFilters()">Limpar</button>
+    <div id="appContainer">
+        <!-- HEADER -->
+        <header>
+            <div class="header-content">
+                <div class="header-title">
+                    <div class="driver-icon">🚍</div>
+                    <div>
+                        <h1>Navegação Motorista</h1>
+                        <p id="headerDate">Carregando...</p>
+                    </div>
+                </div>
+                <button class="btn-refresh" onclick="refreshData()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- ALERTA SÁBADO -->
+        <div class="alert-saturday" id="alertSaturday">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Aos <strong>sábados</strong>, pontos <strong>13</strong> e <strong>24</strong> são obrigatórios!</span>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filters">
+            <div class="filter-group">
+                <div class="select-wrapper">
+                    <i class="select-icon fas fa-clock"></i>
+                    <select class="filter-select" id="hourFilter">
+                        <option value="">Selecione o horário</option>
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="btn-filter" onclick="startNavigation()">
+                    <i class="fas fa-route"></i>
+                    Iniciar Navegação
+                </button>
+                <button class="btn-filter btn-clear" onclick="clearFilters()">
+                    <i class="fas fa-times"></i>
+                    Limpar
+                </button>
+            </div>
+        </div>
+
+        <!-- CONTEÚDO -->
+        <div class="content">
+            <!-- LISTA -->
+            <div class="requests-list" id="requestsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="color: var(--waze-muted);">Carregando solicitações...</p>
+                </div>
+            </div>
+
+            <!-- MAPA -->
+            <div class="map-container" id="mapContainer">
+                <!-- Controles superiores -->
+                <div class="waze-top-bar">
+                    <button class="btn-waze-back" onclick="stopNavigation()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    
+                    <div class="waze-eta-display">
+                        <div class="eta-main">
+                            <span class="eta-value" id="etaMinutes">--</span>
+                            <span class="eta-label">min</span>
+                        </div>
+                        <div class="eta-secondary">
+                            <div class="eta-distance" id="etaKm">-- km</div>
+                            <div class="eta-arrival" id="etaArrival">Chegada --:--</div>
+                        </div>
+                    </div>
+
+                    <button class="btn-waze-recenter" onclick="recenterMap()">
+                        <i class="fas fa-location-arrow"></i>
+                    </button>
+                </div>
+
+                <div id="map"></div>
+
+                <!-- Painel de navegação -->
+                <div class="waze-nav-panel">
+                    <div class="nav-main-instruction">
+                        <div class="nav-turn-icon">
+                            <i class="fas fa-arrow-up" id="navIcon"></i>
+                        </div>
+                        <div class="nav-instruction-text">
+                            <div class="nav-distance-next" id="navDistance">Aguardando GPS...</div>
+                            <div class="nav-action" id="navAction">Calculando rota...</div>
+                            <div class="nav-street-name" id="navStreet"></div>
+                        </div>
+                    </div>
+
+                    <div class="nav-stats-bar">
+                        <div class="nav-stat-item">
+                            <div class="nav-stat-value" id="statTotalDist">--</div>
+                            <div class="nav-stat-label">Distância Total</div>
+                        </div>
+                        <div class="nav-stat-item">
+                            <div class="nav-stat-value" id="statTotalTime">--</div>
+                            <div class="nav-stat-label">Tempo Total</div>
+                        </div>
+                        <div class="nav-stat-item">
+                            <div class="nav-stat-value" id="statStops">0</div>
+                            <div class="nav-stat-label">Paradas</div>
+                        </div>
+                    </div>
+
+                    <div class="waypoints-section">
+                        <div class="waypoints-title">Próximas Paradas</div>
+                        <div id="waypointsList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOAST -->
+        <div class="toast" id="toast">
+            <i class="fas fa-check-circle"></i>
+            <span id="toastMsg"></span>
+        </div>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Hora</th>
-          <th>Solicitante</th>
-          <th>Ponto Desejado</th>
-        </tr>
-      </thead>
-      <tbody id="table-body"></tbody>
-    </table>
 
-    <div id="map"></div>
-  </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script>
+        const SHEET_ID = "132fh2lxEE2vzpfBmAbYCsk4UtRJAZ6fjdLEplUqbwFc";
+        const API_KEY = "AIzaSyCkkBqKGxqPsBHK4-tQN_8DhdNMmX4gaqU";
+        const RANGE = "A:E";
+        const URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`;
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
-  <script>
-    // ---- CONFIG DA PLANILHA ----
-    const SHEET_ID = "132fh2lxEE2vzpfBmAbYCsk4UtRJAZ6fjdLEplUqbwFc";
-    const API_KEY  = "AIzaSyCkkBqKGxqPsBHK4-tQN_8DhdNMmX4gaqU";
-    const RANGE    = "A:E";
-    const URL      = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+        let allData = [];
+        let filteredData = [];
+        let map, routingControl, driverMarker, watchId;
+        let markersLayer;
+        const fixedMarkers = {};
+        let currentWaypoint = 0;
+        let lastBearing = 0;
+        let lastPosition = null;
 
-    let allData = [];
-    let filteredData = [];
+        const pontos = [
+            {nome:"PORTARIA",coords:[-19.9978072,-43.9266727]},
+            {nome:"Ponto 30",coords:[-19.9977078,-43.9289372]},
+            {nome:"Ponto 28",coords:[-19.9986592,-43.9306448]},
+            {nome:"Ponto 29",coords:[-19.999421,-43.9326796]},
+            {nome:"Ponto 27",coords:[-20.0002531,-43.9314901]},
+            {nome:"Ponto 26",coords:[-20.0015469,-43.9333477]},
+            {nome:"Ponto 24",coords:[-20.003258,-43.9296246]},
+            {nome:"Ponto 25",coords:[-20.0050238,-43.9308419]},
+            {nome:"Ponto 21",coords:[-20.0027213,-43.9338594]},
+            {nome:"Ponto 22",coords:[-20.001474,-43.9355339]},
+            {nome:"Ponto 23",coords:[-20.0031588,-43.9364208]},
+            {nome:"Ponto 20",coords:[-20.0063663,-43.934352]},
+            {nome:"Ponto 19",coords:[-20.0085746,-43.9318072]},
+            {nome:"Ponto 17",coords:[-20.0104645,-43.9320381]},
+            {nome:"Ponto 18",coords:[-20.0088433,-43.9343321]},
+            {nome:"Ponto 12",coords:[-20.0088434,-43.9288248]},
+            {nome:"Ponto 13",coords:[-20.0094456,-43.9269802]},
+            {nome:"Ponto 14",coords:[-20.0075172,-43.9277972]},
+            {nome:"Ponto 16",coords:[-20.0068404,-43.9290337]},
+            {nome:"Ponto 15",coords:[-20.0079616,-43.9293497]},
+            {nome:"Ponto 09",coords:[-20.0110997,-43.9309597]},
+            {nome:"Ponto 10",coords:[-20.0120307,-43.9334509]},
+            {nome:"Ponto 11",coords:[-20.0098192,-43.9337648]},
+            {nome:"Ponto 08",coords:[-20.0102615,-43.9273848]},
+            {nome:"Ponto 05",coords:[-20.0114455,-43.9257426]},
+            {nome:"Ponto 06",coords:[-20.0112228,-43.9276231]},
+            {nome:"Ponto 07",coords:[-20.0108785,-43.9296971]},
+            {nome:"Ponto 04",coords:[-20.0068997,-43.9238609]},
+            {nome:"Ponto 03",coords:[-20.0047577,-43.9260624]},
+            {nome:"Ponto 02",coords:[-20.001753,-43.9270223]}
+        ];
 
-    // ---- PONTOS FIXOS ----
-    const pontos = [
-      {nome: "PORTARIA", coords: [-19.9978072, -43.9266727]},
-      {nome: "Ponto 30", coords: [-19.9977078, -43.9289372]},
-      {nome: "Ponto 28", coords: [-19.9986592, -43.9306448]},
-      {nome: "Ponto 29", coords: [-19.999421, -43.9326796]},
-      {nome: "Ponto 27", coords: [-20.0002531, -43.9314901]},
-      {nome: "Ponto 26", coords: [-20.0015469, -43.9333477]},
-      {nome: "Ponto 24", coords: [-20.003258, -43.9296246]},
-      {nome: "Ponto 25", coords: [-20.0050238, -43.9308419]},
-      {nome: "Ponto 21", coords: [-20.0027213, -43.9338594]},
-      {nome: "Ponto 22", coords: [-20.001474, -43.9355339]},
-      {nome: "Ponto 23", coords: [-20.0031588, -43.9364208]},
-      {nome: "Ponto 20", coords: [-20.0063663, -43.934352]},
-      {nome: "Ponto 19", coords: [-20.0085746, -43.9318072]},
-      {nome: "Ponto 17", coords: [-20.0104645, -43.9320381]},
-      {nome: "Ponto 18", coords: [-20.0088433, -43.9343321]},
-      {nome: "Ponto 12", coords: [-20.0088434, -43.9288248]},
-      {nome: "Ponto 13", coords: [-20.0094456, -43.9269802]},
-      {nome: "Ponto 14", coords: [-20.0075172, -43.9277972]},
-      {nome: "Ponto 16", coords: [-20.0068404, -43.9290337]},
-      {nome: "Ponto 15", coords: [-20.0079616, -43.9293497]},
-      {nome: "Ponto 09", coords: [-20.0110997, -43.9309597]},
-      {nome: "Ponto 10", coords: [-20.0120307, -43.9334509]},
-      {nome: "Ponto 11", coords: [-20.0098192, -43.9337648]},
-      {nome: "Ponto 08", coords: [-20.0102615, -43.9273848]},
-      {nome: "Ponto 05", coords: [-20.0114455, -43.9257426]},
-      {nome: "Ponto 06", coords: [-20.0112228, -43.9276231]},
-      {nome: "Ponto 07", coords: [-20.0108785, -43.9296971]},
-      {nome: "Ponto 04", coords: [-20.0068997, -43.9238609]},
-      {nome: "Ponto 03", coords: [-20.0047577, -43.9260624]},
-      {nome: "Ponto 02", coords: [-20.001753, -43.9270223]}
-    ];
-
-    // ---- MAPA / ESTADO ----
-    let map, routingControl, driverMarker, watchId = null;
-    const markersByName = {};
-
-    function getToday() {
-      const now = new Date();
-      return now.toLocaleDateString('pt-BR');
-    }
-
-    async function fetchData() {
-      try {
-        const res = await fetch(URL);
-        const json = await res.json();
-        if (json?.values?.length > 1) {
-          const today = getToday();
-          allData = json.values.slice(1).filter(row => {
-            const data = (row[0] || '').split(" ")[0];
-            return data === today;
-          });
-          displayData(allData);
-          populateHourFilter(allData);
+        // CALCULAR BEARING (DIREÇÃO)
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                      Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            const bearing = Math.atan2(y, x) * 180 / Math.PI;
+            return (bearing + 360) % 360;
         }
-      } catch (e) {
-        alert("Erro ao carregar os dados.");
-        console.error(e);
-      }
-    }
 
-    function displayData(data) {
-      const tbody = document.getElementById("table-body");
-      tbody.innerHTML = "";
-      data.forEach(row => {
-        const hora = (row[0] || "").split(" ")[1] || "";
-        const solicitante = row[1] || "";
-        const ponto = row[2] || "";
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${hora}</td><td>${solicitante}</td><td>${ponto}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function populateHourFilter(data) {
-      const select = document.getElementById("hour-filter");
-      const prev = select.value; // preserva seleção
-      select.innerHTML = '<option value="">Selecione um horário</option>';
-      const uniqueHours = [...new Set(data.map(row => row[3]).filter(Boolean))];
-      uniqueHours.forEach(hour => {
-        const opt = document.createElement("option");
-        opt.value = hour;
-        opt.textContent = hour;
-        select.appendChild(opt);
-      });
-      if (uniqueHours.includes(prev)) select.value = prev;
-    }
-
-    function ensureMap() {
-      if (map) return;
-      map = L.map('map').setView([-19.9978072, -43.9266727], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-
-      const pontoIcon = L.icon({ iconUrl: 'Ponto.png', iconSize: [36, 36], iconAnchor: [18, 36] });
-      pontos.forEach(p => {
-        const m = L.marker(p.coords, { icon: pontoIcon }).addTo(map).bindPopup(p.nome);
-        markersByName[p.nome] = m;
-      });
-    }
-
-    function getMarkerEl(marker) {
-      return marker.getElement ? (marker.getElement() || marker._icon || null) : (marker._icon || null);
-    }
-
-    function clearAllBlink() {
-      Object.values(markersByName).forEach(m => {
-        const el = getMarkerEl(m);
-        if (el) {
-          el.classList.remove('blink-alert');
-          el.classList.remove('dimmed');
-          m.setZIndexOffset(0);
+        // UTILITÁRIOS
+        function getToday() {
+            return new Date().toLocaleDateString('pt-BR');
         }
-      });
-    }
 
-    function setBlinkFor(names) {
-      // apaga todos como base
-      Object.values(markersByName).forEach(m => {
-        const el = getMarkerEl(m);
-        if (el) el.classList.add('dimmed');
-      });
-      // só os filtrados piscam (sem mover)
-      names.forEach(name => {
-        const m = markersByName[name];
-        if (!m) return;
-        const el = getMarkerEl(m);
-        if (!el) return setTimeout(() => {
-          const el2 = getMarkerEl(m);
-          if (el2) { el2.classList.remove('dimmed'); el2.classList.add('blink-alert'); m.setZIndexOffset(1000); }
-        }, 50);
-        el.classList.remove('dimmed');
-        el.classList.add('blink-alert');
-        m.setZIndexOffset(1000);
-      });
-    }
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toastMsg');
+            const icon = toast.querySelector('i');
 
-    function pointsFromFiltered() {
-      const names = filteredData.map(row => row[2]).filter(Boolean);
-      return pontos.filter(p => names.includes(p.nome));
-    }
+            toast.className = `toast ${type}`;
+            msgEl.textContent = msg;
 
-    function updateRoute(userLatLng) {
-      if (routingControl) { map.removeControl(routingControl); routingControl = null; }
-      const agendados = pointsFromFiltered();
-      if (!agendados.length) return;
+            if (type === 'success') icon.className = 'fas fa-check-circle';
+            else if (type === 'error') icon.className = 'fas fa-exclamation-circle';
+            else icon.className = 'fas fa-info-circle';
 
-      const waypoints = [L.latLng(userLatLng[0], userLatLng[1])]
-        .concat(agendados.map(p => L.latLng(p.coords[0], p.coords[1])));
-
-      routingControl = L.Routing.control({
-  waypoints,
-  routeWhileDragging: false,
-  draggableWaypoints: false,
-  addWaypoints: false,
-  createMarker: () => null, // mantém seus ícones fixos
-  show: false,              // remove painel lateral
-  collapsible: true
-}).addTo(map);
-
-// Esconde o container lateral do routing
-const routingContainer = document.querySelector('.leaflet-routing-container');
-if (routingContainer) {
-  routingContainer.style.display = 'none';
-}
-    }
-
-    function applyFilters() {
-      const hour = document.getElementById("hour-filter").value;
-      filteredData = hour ? allData.filter(row => row[3] === hour) : [];
-      displayData(filteredData);
-
-      if (!hour || filteredData.length === 0) {
-        document.getElementById("map").style.display = "none";
-        if (routingControl && map) { map.removeControl(routingControl); routingControl = null; }
-        clearAllBlink();
-        return;
-      }
-
-      ensureMap();
-      document.getElementById("map").style.display = "block";
-      setTimeout(() => map.invalidateSize(), 100);
-
-      const agendados = pointsFromFiltered();
-      clearAllBlink();
-      setBlinkFor(agendados.map(p => p.nome));
-
-      const busIcon = L.icon({ iconUrl: 'onibus.png', iconSize: [40, 40], iconAnchor: [20, 20] });
-
-      const onPosition = pos => {
-        const userLatLng = [pos.coords.latitude, pos.coords.longitude];
-        if (!driverMarker) {
-          driverMarker = L.marker(userLatLng, { icon: busIcon }).addTo(map).bindPopup("Você está aqui");
-        } else {
-          driverMarker.setLatLng(userLatLng);
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
         }
-        updateRoute(userLatLng);
-      };
 
-      const onError = () => {
-        const group = L.featureGroup(agendados.map(p => markersByName[p.nome]));
-        map.fitBounds(group.getBounds().pad(0.3));
-      };
-
-      if (navigator.geolocation) {
-        if (watchId === null) {
-          watchId = navigator.geolocation.watchPosition(onPosition, onError, {
-            enableHighAccuracy: true, maximumAge: 5000, timeout: 10000
-          });
+        function vibrate(pattern) {
+            if (navigator.vibrate) navigator.vibrate(pattern);
         }
-      } else { onError(); }
 
-      if (agendados.length) {
-        const group = L.featureGroup(agendados.map(p => markersByName[p.nome]));
-        map.fitBounds(group.getBounds().pad(0.3));
-      }
-    }
+        // CHECK SÁBADO
+        function checkSaturday() {
+            if (new Date().getDay() === 6) {
+                document.getElementById('alertSaturday').classList.add('show');
+            }
+        }
 
-    function clearFilters() {
-      document.getElementById("hour-filter").value = "";
-      displayData(allData);
-      clearAllBlink();
-      if (map && routingControl) { map.removeControl(routingControl); routingControl = null; }
-      document.getElementById("map").style.display = "none";
-    }
+        // FETCH DATA
+        async function fetchData() {
+            try {
+                const resp = await fetch(URL);
+                const json = await resp.json();
+                if (json?.values?.length > 1) {
+                    const today = getToday();
+                    allData = json.values.slice(1).filter(row => {
+                        const data = (row[0] || '').split(" ")[0];
+                        return data === today;
+                    });
+                    displayRequests(allData);
+                    populateHourFilter(allData);
+                    document.getElementById('headerDate').textContent = `Hoje, ${today}`;
+                }
+            } catch (err) {
+                showToast('Erro ao carregar dados', 'error');
+            }
+        }
 
-    // Carrega dados uma única vez (SEM atualização automática)
-    fetchData();
-  </script>
+        // DISPLAY LISTA
+        function displayRequests(data) {
+            const container = document.getElementById('requestsList');
+            
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <h3>Nenhuma solicitação hoje</h3>
+                        <p>Aguardando novos agendamentos</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.map(row => {
+                const datetime = row[0] || "";
+                const hora = datetime.split(" ")[1] || "00:00";
+                const [h, m] = hora.split(":");
+                const solicitante = row[1] || "Sem nome";
+                const ponto = row[2] || "";
+
+                return `
+                    <div class="request-card">
+                        <div class="request-time">
+                            <div class="time-hour">${h}</div>
+                            <div class="time-min">${m}</div>
+                        </div>
+                        <div class="request-info">
+                            <div class="request-point">${ponto}</div>
+                            <div class="request-person">
+                                <i class="fas fa-user"></i>
+                                ${solicitante}
+                            </div>
+                        </div>
+                        <div class="request-badge">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // POPULATE HOURS
+        function populateHourFilter(data) {
+            const select = document.getElementById('hourFilter');
+            select.innerHTML = '<option value="">Selecione o horário</option>';
+            const uniqueHours = [...new Set(data.map(row => row[3]).filter(Boolean))];
+            uniqueHours.sort().forEach(hour => {
+                const opt = document.createElement('option');
+                opt.value = hour;
+                opt.textContent = hour;
+                select.appendChild(opt);
+            });
+        }
+
+        // INIT MAP
+        function initMap() {
+            if (map) return;
+
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: true
+            }).setView([-19.9978072, -43.9266727], 15);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
+
+            markersLayer = L.layerGroup().addTo(map);
+
+            // Ícones de CDN
+            pontos.forEach(p => {
+                const icon = L.divIcon({
+                    className: '',
+                    html: `<div style="width:36px; height:36px; background:linear-gradient(135deg, #00D9FF 0%, #0099cc 100%); border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:900; color:white; box-shadow:0 4px 15px rgba(0,217,255,0.5)">${p.nome.replace('Ponto ', '').replace('PORTARIA', 'P')}</div>`,
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 36]
+                });
+
+                const marker = L.marker(p.coords, { 
+                    icon: icon,
+                    draggable: false
+                }).addTo(markersLayer);
+                
+                marker.bindPopup(`<strong>${p.nome}</strong>`);
+                fixedMarkers[p.nome] = marker;
+            });
+        }
+
+        // HIGHLIGHT MARCADORES
+        function highlightMarkers(names) {
+            pontos.forEach(p => {
+                const marker = fixedMarkers[p.nome];
+                if (marker) {
+                    const el = marker.getElement();
+                    if (el) {
+                        const div = el.querySelector('div');
+                        if (div) {
+                            div.classList.remove('marker-pulse', 'marker-dimmed');
+                            div.classList.add('marker-dimmed');
+                        }
+                    }
+                }
+            });
+
+            names.forEach(name => {
+                const marker = fixedMarkers[name];
+                if (marker) {
+                    const el = marker.getElement();
+                    if (el) {
+                        const div = el.querySelector('div');
+                        if (div) {
+                            div.classList.remove('marker-dimmed');
+                            div.classList.add('marker-pulse');
+                        }
+                    }
+                }
+            });
+        }
+
+        // START NAVIGATION
+        function startNavigation() {
+            const hour = document.getElementById('hourFilter').value;
+            
+            if (!hour) {
+                showToast('Selecione um horário primeiro', 'error');
+                return;
+            }
+
+            filteredData = allData.filter(row => row[3] === hour);
+            
+            if (filteredData.length === 0) {
+                showToast('Sem solicitações neste horário', 'error');
+                return;
+            }
+
+            document.getElementById('requestsList').style.display = 'none';
+            document.getElementById('mapContainer').classList.add('active');
+
+            initMap();
+            setTimeout(() => map.invalidateSize(), 100);
+
+            const agendados = filteredData.map(row => row[2]).filter(Boolean);
+            highlightMarkers(agendados);
+            updateWaypointsList();
+
+            startGPSTracking();
+
+            showToast(`Navegação iniciada: ${filteredData.length} parada(s)`, 'success');
+            vibrate(100);
+        }
+
+        // GPS TRACKING COM ROTAÇÃO
+        function startGPSTracking() {
+            const onPosition = pos => {
+                const userLatLng = [pos.coords.latitude, pos.coords.longitude];
+                
+                // Calcular bearing se houver posição anterior
+                if (lastPosition) {
+                    lastBearing = calculateBearing(
+                        lastPosition[0], lastPosition[1],
+                        userLatLng[0], userLatLng[1]
+                    );
+                }
+                lastPosition = userLatLng;
+
+                if (!driverMarker) {
+                    // Ícone de ônibus da internet
+                    const busIcon = L.divIcon({
+                        className: 'rotating-bus',
+                        html: `<div style="width:50px; height:50px; transform:rotate(${lastBearing}deg); transition:transform 0.3s ease-out">
+                                <svg viewBox="0 0 24 24" fill="#00D9FF" style="filter:drop-shadow(0 4px 12px rgba(0,217,255,0.7))">
+                                    <path d="M12,2C8.69,2 6,4.69 6,8C6,12.5 12,19 12,19C12,19 18,12.5 18,8C18,4.69 15.31,2 12,2M12,11A3,3 0 0,1 9,8A3,3 0 0,1 12,5A3,3 0 0,1 15,8A3,3 0 0,1 12,11M12,6.5A1.5,1.5 0 0,0 10.5,8A1.5,1.5 0 0,0 12,9.5A1.5,1.5 0 0,0 13.5,8A1.5,1.5 0 0,0 12,6.5Z" />
+                                </svg>
+                               </div>`,
+                        iconSize: [50, 50],
+                        iconAnchor: [25, 50]
+                    });
+
+                    driverMarker = L.marker(userLatLng, { 
+                        icon: busIcon,
+                        draggable: false,
+                        rotationAngle: lastBearing
+                    }).addTo(map);
+                    driverMarker.bindPopup("🚍 Sua localização");
+                } else {
+                    driverMarker.setLatLng(userLatLng);
+                    // Atualizar rotação
+                    const el = driverMarker.getElement();
+                    if (el) {
+                        const div = el.querySelector('div');
+                        if (div) {
+                            div.style.transform = `rotate(${lastBearing}deg)`;
+                        }
+                    }
+                }
+
+                calculateRoute(userLatLng);
+            };
+
+            const onError = () => {
+                showToast('GPS indisponível', 'error');
+            };
+
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition(onPosition, onError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 2000,
+                    timeout: 10000
+                });
+            } else {
+                onError();
+            }
+        }
+
+        // CALCULATE ROUTE
+        function calculateRoute(userLatLng) {
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+
+            const agendados = filteredData.map(row => {
+                return pontos.find(p => p.nome === row[2]);
+            }).filter(Boolean);
+
+            if (agendados.length === 0) return;
+
+            const waypoints = [L.latLng(userLatLng[0], userLatLng[1])]
+                .concat(agendados.map(p => L.latLng(p.coords[0], p.coords[1])));
+
+            routingControl = L.Routing.control({
+                waypoints,
+                routeWhileDragging: false,
+                draggableWaypoints: false,
+                addWaypoints: false,
+                createMarker: () => null,
+                show: false,
+                lineOptions: {
+                    styles: [{color: '#00D9FF', opacity: 0.9, weight: 7}]
+                }
+            }).addTo(map);
+
+            routingControl.on('routesfound', (e) => {
+                const route = e.routes[0];
+                const distKm = (route.summary.totalDistance / 1000).toFixed(1);
+                const timeMin = Math.round(route.summary.totalTime / 60);
+
+                // Atualizar ETA
+                document.getElementById('etaMinutes').textContent = timeMin;
+                document.getElementById('etaKm').textContent = distKm + ' km';
+                
+                const now = new Date();
+                const arrival = new Date(now.getTime() + timeMin * 60000);
+                document.getElementById('etaArrival').textContent = 
+                    `Chegada ${arrival.getHours().toString().padStart(2,'0')}:${arrival.getMinutes().toString().padStart(2,'0')}`;
+
+                // Estatísticas
+                document.getElementById('statTotalDist').textContent = distKm + ' km';
+                document.getElementById('statTotalTime').textContent = timeMin + ' min';
+                document.getElementById('statStops').textContent = agendados.length;
+
+                // Instrução de navegação
+                if (route.instructions && route.instructions.length > 0) {
+                    const inst = route.instructions[0];
+                    const dist = inst.distance < 1000 ? 
+                        Math.round(inst.distance) + ' m' : 
+                        (inst.distance / 1000).toFixed(1) + ' km';
+                    
+                    document.getElementById('navDistance').textContent = dist;
+                    document.getElementById('navAction').textContent = inst.text || 'Siga em frente';
+                    document.getElementById('navStreet').textContent = inst.road || '';
+
+                    // Ícone da direção
+                    const iconMap = {
+                        'left': 'fa-arrow-left',
+                        'right': 'fa-arrow-right',
+                        'straight': 'fa-arrow-up',
+                        'sharp left': 'fa-arrow-alt-circle-left',
+                        'sharp right': 'fa-arrow-alt-circle-right'
+                    };
+                    const direction = inst.direction || 'straight';
+                    document.getElementById('navIcon').className = 'fas ' + (iconMap[direction] || 'fa-arrow-up');
+                }
+            });
+        }
+
+        // UPDATE WAYPOINTS
+        function updateWaypointsList() {
+            const container = document.getElementById('waypointsList');
+            container.innerHTML = filteredData.map((row, i) => {
+                const statusClass = i === currentWaypoint ? 'current' : (i < currentWaypoint ? 'completed' : '');
+                const badgeClass = i === currentWaypoint ? 'next' : (i < currentWaypoint ? 'done' : 'pending');
+                const badgeText = i === currentWaypoint ? 'Próximo' : (i < currentWaypoint ? 'Concluído' : 'Pendente');
+                
+                return `
+                    <div class="waypoint-item">
+                        <div class="waypoint-marker ${statusClass}">${i + 1}</div>
+                        <div class="waypoint-details">
+                            <div class="waypoint-point-name">${row[2]}</div>
+                            <div class="waypoint-person-name">${row[1]}</div>
+                        </div>
+                        <div class="waypoint-status-badge ${badgeClass}">${badgeText}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // RECENTER
+        function recenterMap() {
+            if (driverMarker) {
+                map.setView(driverMarker.getLatLng(), 17);
+                showToast('Mapa centralizado', 'info');
+                vibrate(50);
+            }
+        }
+
+        // STOP NAVIGATION
+        function stopNavigation() {
+            document.getElementById('mapContainer').classList.remove('active');
+            document.getElementById('requestsList').style.display = 'block';
+            
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            if (routingControl && map) {
+                map.removeControl(routingControl);
+                routingControl = null;
+            }
+
+            if (driverMarker && map) {
+                map.removeLayer(driverMarker);
+                driverMarker = null;
+            }
+
+            pontos.forEach(p => {
+                const marker = fixedMarkers[p.nome];
+                if (marker) {
+                    const el = marker.getElement();
+                    if (el) {
+                        const div = el.querySelector('div');
+                        if (div) {
+                            div.classList.remove('marker-pulse', 'marker-dimmed');
+                        }
+                    }
+                }
+            });
+
+            currentWaypoint = 0;
+            lastPosition = null;
+            lastBearing = 0;
+            showToast('Navegação encerrada', 'info');
+        }
+
+        // CLEAR FILTERS
+        function clearFilters() {
+            document.getElementById('hourFilter').value = '';
+            stopNavigation();
+            displayRequests(allData);
+            showToast('Filtros limpos', 'info');
+        }
+
+        // REFRESH
+        function refreshData() {
+            showToast('Atualizando...', 'info');
+            fetchData();
+        }
+
+        // INIT
+        checkSaturday();
+        fetchData();
+    </script>
 </body>
 </html>
-
